@@ -21,7 +21,7 @@ Context states: under 50% **Great**, 50–69% **Good**, 70–84% **Wrap up** (wa
 At the prompt of a Claude Code terminal session:
 
 ```
-/plugin install status-bar --marketplace tbnovaes/status-bar
+/plugin install status-bar --marketplace tbnovaes/claude-status-bar
 ```
 
 Answer `y` to add the marketplace, then pick a scope (user scope is first; press Enter).
@@ -29,10 +29,10 @@ Answer `y` to add the marketplace, then pick a scope (user scope is first; press
 From a shell:
 
 ```
-claude plugin install status-bar --marketplace tbnovaes/status-bar
+claude plugin install status-bar --marketplace tbnovaes/claude-status-bar
 ```
 
-In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `tbnovaes/status-bar`, then Add plugin.
+In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `tbnovaes/claude-status-bar`, then Add plugin.
 
 ## Develop
 
