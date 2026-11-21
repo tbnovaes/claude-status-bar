@@ -5,8 +5,12 @@ import type { Meter, ModelInfo } from '../types'
 
 const meter = atom(
   { plugin: 'status-bar', key: 'meter' } as const,
-  { ctx: null, fiveHour: null, week: null },
+  { ctx: null, fiveHour: null, week: null, fiveHourResets: null, weekResets: null },
 )
+
+// Wall-clock reading that redraws the footer once a minute, so the reset
+// countdown keeps moving between turns. 0 until the first reading.
+const tick = atom({ plugin: 'status-bar', key: 'tick' } as const, 0)
 
 const modelInfo = atom(
   { plugin: 'status-bar', key: 'modelInfo' } as const,
@@ -17,12 +21,41 @@ const toMeter = (
   context: SessionContextUsage,
   rateLimits: readonly SessionRateLimit[],
 ): Meter => {
-  const pct = (kind: string) => rateLimits.find(r => r.kind === kind)?.percentUsed ?? null
+  const find = (kind: string) => rateLimits.find(r => r.kind === kind)
 
-  return { ctx: context.percent ?? null, fiveHour: pct('five_hour'), week: pct('seven_day') }
+  return {
+    ctx: context.percent ?? null,
+    fiveHour: find('five_hour')?.percentUsed ?? null,
+    week: find('seven_day')?.percentUsed ?? null,
+    fiveHourResets: find('five_hour')?.resetsAt ?? null,
+    weekResets: find('seven_day')?.resetsAt ?? null,
+  }
 }
 
 const fmt = (n: number | null) => (n === null ? '--' : `${Math.round(n)}%`)
+
+// Time left until a window resets: "4d 3h", "2h 13m", "12m", "<1m".
+// "reset" once the time has passed (the percentage is then stale); null when
+// the reset time is unknown, so nothing is drawn.
+export const remaining = (resetsAt: string | null | undefined, now: number): string | null => {
+  if (!resetsAt) return null
+  const at = Date.parse(resetsAt)
+  if (Number.isNaN(at)) return null
+  const ms = at - now
+  if (ms <= 0) return 'reset'
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 1) return '<1m'
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  if (days >= 1) return `${days}d ${hours}h`
+  if (hours >= 1) return `${hours}h ${minutes % 60}m`
+  return `${minutes}m`
+}
+
+const withReset = (pct: number | null, resetsAt: string | null | undefined, now: number) => {
+  const left = remaining(resetsAt, now)
+  return `${fmt(pct)}${left ? ` (${left})` : ''}`
+}
 
 // "claude-opus-5-5[1m]" -> "Opus 5.5 [1m]"; display names pass through.
 export const prettyModel = (raw: string): string => {
@@ -63,6 +96,12 @@ export const adviceColor = (ctx: number | null): 'warning' | 'error' | undefined
   ctx === null ? undefined : ctx >= 85 ? 'error' : ctx >= 70 ? 'warning' : undefined
 
 let warned = 0 // highest threshold toasted this session
+let tickTimer: { cancel: () => void } | undefined
+
+const refreshClock = async ($: EngineInterface) => {
+  const now = await $.clock.now()
+  await update($, tick, () => now)
+}
 
 const setModel = async ($: EngineInterface, model: string) =>
   update($, modelInfo, (prev: ModelInfo) => ({ ...prev, model: prettyModel(model) }))
@@ -74,6 +113,11 @@ export const register: Register = on => {
     await update($, meter, () => toMeter(context, rateLimits))
     await setModel($, await $.session.model())
     await syncEffort($)
+    await refreshClock($)
+
+    // A minute is the finest the countdown shows. Hot reload stops the old timer.
+    tickTimer?.cancel()
+    tickTimer = $.clock.every(60_000, () => void refreshClock($))
 
     return result
   })
@@ -93,6 +137,7 @@ export const register: Register = on => {
   on('session.measure', async ($, e, next) => {
     const m = toMeter(e.context, e.rateLimits)
     await update($, meter, () => m)
+    await refreshClock($)
     await setModel($, await $.session.model())
     await syncEffort($)
 
@@ -133,13 +178,15 @@ export const register: Register = on => {
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const m = await read($, meter)
     const info = await read($, modelInfo)
+    const now = (await read($, tick)) || (await $.clock.now())
     const { Box, Text } = $.ui.resolve(e)
 
     const tip = advice(m.ctx)
     const color = adviceColor(m.ctx)
     const lead = e.props.modes.length ? ' & ' : ''
     const before = `${lead}${info.model ?? '--'} | ${info.effort ?? 'default'} | ctx: ${fmt(m.ctx)}${tip ? ' (' : ''}`
-    const after = `${tip ? ')' : ''} | 5h: ${fmt(m.fiveHour)} | wk: ${fmt(m.week)}`
+    // Values stored by an older version lack the reset times: read them as unknown.
+    const after = `${tip ? ')' : ''} | 5h: ${withReset(m.fiveHour, m.fiveHourResets, now)} | wk: ${withReset(m.week, m.weekResets, now)}`
 
     // The engine's own mode labels first, untouched; then ours.
     const engine = await next(e)

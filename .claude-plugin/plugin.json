@@ -1,6 +1,6 @@
 {
   "name": "status-bar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shows model, effort, context % with a new-session hint, and 5-hour and weekly limit % at the bottom right of the prompt footer",
   "author": { "name": "tbnovaes" },
   "repository": "https://github.com/tbnovaes/claude-status-bar",

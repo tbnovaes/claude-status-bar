@@ -3,7 +3,7 @@
 A Claude Code mod that puts a live usage meter at the bottom right of the prompt footer, on the same line as the permission mode (`accept edits on`):
 
 ```
-Opus 5.5 | xhigh | ctx: 75% (Wrap up) | 5h: 38% | wk: 8%
+Opus 5.5 | xhigh | ctx: 75% (Wrap up) | 5h: 38% (2h 13m) | wk: 8% (4d 3h)
 ```
 
 | Part | What it shows |
@@ -11,10 +11,10 @@ Opus 5.5 | xhigh | ctx: 75% (Wrap up) | 5h: 38% | wk: 8%
 | Model | The session's model, as `/model` shows it |
 | Effort | The effort level you set (`/effort`, `effortLevel` in settings), else the level the last request ran at, else `default` |
 | `ctx` | How full the context window is, plus a state |
-| `5h` | Your 5-hour rate-limit window used (subscription plans) |
-| `wk` | Your weekly rate-limit window used (subscription plans) |
+| `5h` | Your 5-hour rate-limit window used, and the time left until it resets (subscription plans) |
+| `wk` | Your weekly rate-limit window used, and the time left until it resets (subscription plans) |
 
-Context states: under 50% **Great**, 50–69% **Good**, 70–84% **Wrap up** (warning color), 85%+ **New Session** (error color). A one-time toast also appears at 70% and 85%. A value not known yet shows `--`.
+Context states: under 50% **Great**, 50–69% **Good**, 70–84% **Wrap up** (warning color), 85%+ **New Session** (error color). A one-time toast also appears at 70% and 85%. The time left reads `4d 3h`, `2h 13m`, `12m` or `<1m`, counts down every minute, and shows `reset` once a window has passed its reset time. A value not known yet shows `--`.
 
 ## Install
 
