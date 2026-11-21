@@ -1,0 +1,9 @@
+{
+  "name": "status-bar",
+  "version": "0.1.0",
+  "description": "Shows model, effort, context % with a new-session hint, and 5-hour and weekly limit % at the bottom right of the prompt footer",
+  "author": { "name": "tbnovaes" },
+  "repository": "https://github.com/tbnovaes/status-bar",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

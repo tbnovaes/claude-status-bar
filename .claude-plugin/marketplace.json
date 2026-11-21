@@ -1,0 +1,6 @@
+{
+  "name": "status-bar",
+  "description": "A Claude Code mod showing model, effort, context and rate-limit usage in the prompt footer",
+  "owner": { "name": "tbnovaes" },
+  "plugins": [{ "name": "status-bar", "source": "./" }]
+}
