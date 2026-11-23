@@ -1,5 +1,7 @@
 export type Meter = {
   ctx: number | null
+  /** Tokens in the context window; absent in values an older version stored. */
+  ctxTokens?: number | null
   fiveHour: number | null
   week: number | null
   /** ISO 8601 time each window resets; absent in values an older version stored. */

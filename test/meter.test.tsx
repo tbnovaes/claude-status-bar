@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { advice, prettyModel, remaining } from '../hooks/register'
+import { advice, adviceColor, fmtTokens, prettyModel, remaining } from '../hooks/register'
 
 const MODE = {
   plugin: 'status-bar',
@@ -25,7 +25,7 @@ const line = async (ui: any) =>
 test('shows dashes before any reading', async ($, on) => {
   engine(on)
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
-  expect(await line(ui)).toBe('-- | default | ctx: -- | 5h: -- | wk: --')
+  expect(await line(ui)).toBe('-- | default | ctx: -- -- | 5h: -- | wk: --')
   await ui.unmount()
 })
 
@@ -49,7 +49,7 @@ test('shows model, effort, ctx, 5h and weekly', async ($, on) => {
   for await (const _ of s) { /* drain */ }
 
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
-  expect(await line(ui)).toBe('Opus 5.5 | high | ctx: 21% (Great) | 5h: 38% | wk: 8%')
+  expect(await line(ui)).toBe('Opus 5.5 | high | ctx: 21% 42k (Good) | 5h: 38% | wk: 8%')
   await ui.unmount()
 })
 
@@ -74,38 +74,49 @@ test('the configured effort wins over what a request sent, and advice shows', as
 
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
   expect(await line(ui)).toBe(
-    'Opus 5.5 | xhigh | ctx: 88% (New Session) | 5h: -- | wk: --',
+    'Opus 5.5 | xhigh | ctx: 88% 176k (Degraded) | 5h: -- | wk: --',
   )
-  expect((await ui.find({ type: 'Text', text: /New Session/ }))?.props.color).toBe('error')
+  expect((await ui.find({ type: 'Text', text: /Degraded/ }))?.props.color).toBe('#ef4444')
   await ui.unmount()
 })
 
-test('advice thresholds', () => {
+test('advice thresholds and colors', () => {
   expect(advice(null)).toBe(null)
-  expect(advice(30)).toBe('Great')
-  expect(advice(49)).toBe('Great')
-  expect(advice(50)).toBe('Good')
-  expect(advice(69)).toBe('Good')
-  expect(advice(70)).toBe('Wrap up')
-  expect(advice(84)).toBe('Wrap up')
-  expect(advice(85)).toBe('New Session')
+  const cases: [number, string, string][] = [
+    [0, 'Great', '#22c55e'], [19, 'Great', '#22c55e'],
+    [20, 'Good', '#eab308'], [49, 'Good', '#eab308'],
+    [50, 'Wrap up', '#f97316'], [59, 'Wrap up', '#f97316'],
+    [60, 'Compact', '#a855f7'], [74, 'Compact', '#a855f7'],
+    [75, 'Degraded', '#ef4444'], [100, 'Degraded', '#ef4444'],
+  ]
+  for (const [pct, label, color] of cases) {
+    expect(advice(pct)).toBe(label)
+    expect(adviceColor(pct)).toBe(color)
+  }
+  expect(adviceColor(null)).toBe(undefined)
 })
 
-test('wrap up is drawn in the warning color, the engine modes kept', async ($, on) => {
+test('token counts read short', () => {
+  expect(fmtTokens(null)).toBe('--')
+  expect(fmtTokens(850)).toBe('850')
+  expect(fmtTokens(42000)).toBe('42k')
+  expect(fmtTokens(1_200_000)).toBe('1.2M')
+})
+
+test('compact is drawn in purple with its tokens, the engine modes kept', async ($, on) => {
   engine(on)
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('ui.toast', () => ({ value: undefined }))
   on('session.measure', (_: any, e: any) => ({ changed: e.changed }))
   await $.session.measure({
-    context: { tokens: 150000, window: 200000, percent: 75 },
+    context: { tokens: 130000, window: 200000, percent: 65 },
     rateLimits: [],
     changed: ['context'],
   })
 
   const ui = await $.ui.mount({ ...MODE, props: { modes: ['focus'] }, surface: 'terminal' })
-  expect(await line(ui)).toBe('focus & Opus 5.5 | default | ctx: 75% (Wrap up) | 5h: -- | wk: --')
-  expect((await ui.find({ type: 'Text', text: /Wrap up/ }))?.props.color).toBe('warning')
-  expect((await ui.find({ type: 'Text', text: /^Good$|^Great$/ }))).toBeUndefined()
+  expect(await line(ui)).toBe('focus & Opus 5.5 | default | ctx: 65% 130k (Compact) | 5h: -- | wk: --')
+  expect((await ui.find({ type: 'Text', text: /Compact/ }))?.props.color).toBe('#a855f7')
   await ui.unmount()
 })
 
@@ -139,7 +150,7 @@ test('the footer shows the time left for each limit', async ($, on) => {
   })
 
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
-  expect(await line(ui)).toBe('Opus 5.5 | default | ctx: 21% (Great) | 5h: 38% (2h 13m) | wk: 8% (2d 5h)')
+  expect(await line(ui)).toBe('Opus 5.5 | default | ctx: 21% 42k (Good) | 5h: 38% (2h 13m) | wk: 8% (2d 5h)')
   await ui.unmount()
 })
 

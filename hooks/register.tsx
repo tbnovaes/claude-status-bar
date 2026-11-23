@@ -5,7 +5,7 @@ import type { Meter, ModelInfo } from '../types'
 
 const meter = atom(
   { plugin: 'status-bar', key: 'meter' } as const,
-  { ctx: null, fiveHour: null, week: null, fiveHourResets: null, weekResets: null },
+  { ctx: null, ctxTokens: null, fiveHour: null, week: null, fiveHourResets: null, weekResets: null },
 )
 
 // Wall-clock reading that redraws the footer once a minute, so the reset
@@ -25,6 +25,7 @@ const toMeter = (
 
   return {
     ctx: context.percent ?? null,
+    ctxTokens: context.tokens ?? null,
     fiveHour: find('five_hour')?.percentUsed ?? null,
     week: find('seven_day')?.percentUsed ?? null,
     fiveHourResets: find('five_hour')?.resetsAt ?? null,
@@ -82,18 +83,32 @@ const syncEffort = async ($: EngineInterface) => {
   await update($, modelInfo, prev => ({ ...prev, effort: effort ?? prev.effort }))
 }
 
-// Advice on when to start fresh, by context fill.
+// Context states by fill. The ranges asked for leave 40-50% open; Good runs to 50.
 export const advice = (ctx: number | null): string | null => {
   if (ctx === null) return null
-  if (ctx >= 85) return 'New Session'
-  if (ctx >= 70) return 'Wrap up'
-  if (ctx >= 50) return 'Good'
+  if (ctx >= 75) return 'Degraded'
+  if (ctx >= 60) return 'Compact'
+  if (ctx >= 50) return 'Wrap up'
+  if (ctx >= 20) return 'Good'
   return 'Great'
 }
 
-// Theme colors, so they follow your theme (colorblind-friendly ones included).
-export const adviceColor = (ctx: number | null): 'warning' | 'error' | undefined =>
-  ctx === null ? undefined : ctx >= 85 ? 'error' : ctx >= 70 ? 'warning' : undefined
+export const adviceColor = (ctx: number | null): string | undefined => {
+  if (ctx === null) return undefined
+  if (ctx >= 75) return '#ef4444' // red
+  if (ctx >= 60) return '#a855f7' // purple
+  if (ctx >= 50) return '#f97316' // orange
+  if (ctx >= 20) return '#eab308' // yellow
+  return '#22c55e' // green
+}
+
+// Tokens as "850", "42k", "1.2M".
+export const fmtTokens = (n: number | null | undefined): string => {
+  if (n === null || n === undefined) return '--'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k`
+  return String(Math.round(n))
+}
 
 let warned = 0 // highest threshold toasted this session
 let tickTimer: { cancel: () => void } | undefined
@@ -141,13 +156,16 @@ export const register: Register = on => {
     await setModel($, await $.session.model())
     await syncEffort($)
 
-    const level = m.ctx === null ? 0 : m.ctx >= 85 ? 85 : m.ctx >= 70 ? 70 : 0
+    const level = m.ctx === null ? 0 : m.ctx >= 75 ? 75 : m.ctx >= 60 ? 60 : m.ctx >= 50 ? 50 : 0
     if (level > warned) {
       warned = level
+      const pct = Math.round(m.ctx!)
       $.ui.toast(
-        level >= 85
-          ? `Context ${Math.round(m.ctx!)}% full: start a new session (/clear) and carry over a short summary.`
-          : `Context ${Math.round(m.ctx!)}% full: finish this task, then start a new session.`,
+        level >= 75
+          ? `Context ${pct}% full: quality is degraded. Start a new session (/clear) with a short summary.`
+          : level >= 60
+            ? `Context ${pct}% full: time to /compact.`
+            : `Context ${pct}% full: finish this task, then compact or start fresh.`,
       )
     } else if (level < warned) {
       warned = level // fell back after /clear or /compact
@@ -184,9 +202,10 @@ export const register: Register = on => {
     const tip = advice(m.ctx)
     const color = adviceColor(m.ctx)
     const lead = e.props.modes.length ? ' & ' : ''
-    const before = `${lead}${info.model ?? '--'} | ${info.effort ?? 'default'} | ctx: ${fmt(m.ctx)}${tip ? ' (' : ''}`
-    // Values stored by an older version lack the reset times: read them as unknown.
-    const after = `${tip ? ')' : ''} | 5h: ${withReset(m.fiveHour, m.fiveHourResets, now)} | wk: ${withReset(m.week, m.weekResets, now)}`
+    const before = `${lead}${info.model ?? '--'} | ${info.effort ?? 'default'} | ctx: `
+    // Values stored by an older version lack tokens and reset times: read them as unknown.
+    const used = `${fmt(m.ctx)} ${fmtTokens(m.ctxTokens)}${tip ? ` (${tip})` : ''}`
+    const after = ` | 5h: ${withReset(m.fiveHour, m.fiveHourResets, now)} | wk: ${withReset(m.week, m.weekResets, now)}`
 
     // The engine's own mode labels first, untouched; then ours.
     const engine = await next(e)
@@ -195,7 +214,7 @@ export const register: Register = on => {
       <Box flexDirection="row">
         {engine}
         <Text dimColor>{before}</Text>
-        {tip ? color ? <Text color={color} weight="bold">{tip}</Text> : <Text dimColor>{tip}</Text> : null}
+        {color ? <Text color={color} weight="bold">{used}</Text> : <Text dimColor>{used}</Text>}
         <Text dimColor>{after}</Text>
       </Box>
     )
