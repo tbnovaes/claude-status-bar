@@ -204,7 +204,8 @@ export const register: Register = on => {
     const lead = e.props.modes.length ? ' & ' : ''
     const before = `${lead}${info.model ?? '--'} | ${info.effort ?? 'default'} | ctx: `
     // Values stored by an older version lack tokens and reset times: read them as unknown.
-    const used = `${fmt(m.ctx)} ${fmtTokens(m.ctxTokens)}${tip ? ` (${tip})` : ''}`
+    const used = `${fmt(m.ctx)}${tip ? ` (${tip})` : ''}`
+    const tokens = `${fmtTokens(m.ctxTokens)} tokens`
     const after = ` | 5h: ${withReset(m.fiveHour, m.fiveHourResets, now)} | wk: ${withReset(m.week, m.weekResets, now)}`
 
     // The engine's own mode labels first, untouched; then ours.
@@ -215,6 +216,8 @@ export const register: Register = on => {
         {engine}
         <Text dimColor>{before}</Text>
         {color ? <Text color={color} weight="bold">{used}</Text> : <Text dimColor>{used}</Text>}
+        <Text dimColor>{' | '}</Text>
+        {color ? <Text color={color} weight="bold">{tokens}</Text> : <Text dimColor>{tokens}</Text>}
         <Text dimColor>{after}</Text>
       </Box>
     )

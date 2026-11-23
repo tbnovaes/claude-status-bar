@@ -25,7 +25,7 @@ const line = async (ui: any) =>
 test('shows dashes before any reading', async ($, on) => {
   engine(on)
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
-  expect(await line(ui)).toBe('-- | default | ctx: -- -- | 5h: -- | wk: --')
+  expect(await line(ui)).toBe('-- | default | ctx: -- | -- tokens | 5h: -- | wk: --')
   await ui.unmount()
 })
 
@@ -49,7 +49,7 @@ test('shows model, effort, ctx, 5h and weekly', async ($, on) => {
   for await (const _ of s) { /* drain */ }
 
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
-  expect(await line(ui)).toBe('Opus 5.5 | high | ctx: 21% 42k (Good) | 5h: 38% | wk: 8%')
+  expect(await line(ui)).toBe('Opus 5.5 | high | ctx: 21% (Good) | 42k tokens | 5h: 38% | wk: 8%')
   await ui.unmount()
 })
 
@@ -74,7 +74,7 @@ test('the configured effort wins over what a request sent, and advice shows', as
 
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
   expect(await line(ui)).toBe(
-    'Opus 5.5 | xhigh | ctx: 88% 176k (Degraded) | 5h: -- | wk: --',
+    'Opus 5.5 | xhigh | ctx: 88% (Degraded) | 176k tokens | 5h: -- | wk: --',
   )
   expect((await ui.find({ type: 'Text', text: /Degraded/ }))?.props.color).toBe('#ef4444')
   await ui.unmount()
@@ -115,7 +115,7 @@ test('compact is drawn in purple with its tokens, the engine modes kept', async 
   })
 
   const ui = await $.ui.mount({ ...MODE, props: { modes: ['focus'] }, surface: 'terminal' })
-  expect(await line(ui)).toBe('focus & Opus 5.5 | default | ctx: 65% 130k (Compact) | 5h: -- | wk: --')
+  expect(await line(ui)).toBe('focus & Opus 5.5 | default | ctx: 65% (Compact) | 130k tokens | 5h: -- | wk: --')
   expect((await ui.find({ type: 'Text', text: /Compact/ }))?.props.color).toBe('#a855f7')
   await ui.unmount()
 })
@@ -150,7 +150,7 @@ test('the footer shows the time left for each limit', async ($, on) => {
   })
 
   const ui = await $.ui.mount({ ...MODE, surface: 'terminal' })
-  expect(await line(ui)).toBe('Opus 5.5 | default | ctx: 21% 42k (Good) | 5h: 38% (2h 13m) | wk: 8% (2d 5h)')
+  expect(await line(ui)).toBe('Opus 5.5 | default | ctx: 21% (Good) | 42k tokens | 5h: 38% (2h 13m) | wk: 8% (2d 5h)')
   await ui.unmount()
 })
 

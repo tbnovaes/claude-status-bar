@@ -3,14 +3,14 @@
 A Claude Code mod that puts a live usage meter at the bottom right of the prompt footer, on the same line as the permission mode (`accept edits on`):
 
 ```
-Opus 5.5 | xhigh | ctx: 62% 124k (Compact) | 5h: 38% (2h 13m) | wk: 8% (4d 3h)
+Opus 5.5 | xhigh | ctx: 62% (Compact) | 124k tokens | 5h: 38% (2h 13m) | wk: 8% (4d 3h)
 ```
 
 | Part | What it shows |
 | --- | --- |
 | Model | The session's model, as `/model` shows it |
 | Effort | The effort level you set (`/effort`, `effortLevel` in settings), else the level the last request ran at, else `default` |
-| `ctx` | How full the context window is, the tokens in it, and a state, all in the state's color |
+| `ctx` | How full the context window is, a state, and the tokens in it, all in the state's color |
 | `5h` | Your 5-hour rate-limit window used, and the time left until it resets (subscription plans) |
 | `wk` | Your weekly rate-limit window used, and the time left until it resets (subscription plans) |
 
